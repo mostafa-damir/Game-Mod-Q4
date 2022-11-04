@@ -26,7 +26,7 @@
 // RAVEN END
 
 #ifdef _WIN32
-#include "TypeInfo.h"
+#include "TypeInfo"
 #else
 #include "NoGameTypeInfo.h"
 #endif
@@ -171,7 +171,7 @@ void Cmd_ListSpawnArgs_f( const idCmdArgs &args ) {
 
 	for ( i = 0; i < ent->spawnArgs.GetNumKeyVals(); i++ ) {
 		const idKeyValue *kv = ent->spawnArgs.GetKeyVal( i );
-		gameLocal.Printf( "\"%s\"  "S_COLOR_WHITE"\"%s\"\n", kv->GetKey().c_str(), kv->GetValue().c_str() );
+		gameLocal.Printf( "\"%s\"  " S_COLOR_WHITE "\"%s\"\n", kv->GetKey().c_str(), kv->GetValue().c_str() );
 	}
 }
 
@@ -844,6 +844,7 @@ void Cmd_PlayerModel_f( const idCmdArgs &args ) {
 	ang = player->viewAngles;
 	player->SpawnToPoint( pos, ang );
 }
+
 
 /*
 ==================
@@ -2922,7 +2923,7 @@ void Cmd_AddIcon_f( const idCmdArgs& args ) {
 
 // RITUAL BEGIN
 // squirrel: Mode-agnostic buymenus
-void Cmd_ToggleBuyMenu_f( const idCmdArgs& args ) {
+static void Cmd_ToggleBuyMenu_f( const idCmdArgs& args ) {
 	idPlayer* player = gameLocal.GetLocalPlayer();
 	if ( player && player->CanBuy() )
 	{
@@ -3011,6 +3012,123 @@ void Cmd_TestClientModel_f( const idCmdArgs& args ) {
 //	face->SetOrigin( vec3_zero );
 //	face->SetAxis( mat3_identity );
 //	face->SetModel( "model_player_marine" );
+}
+/*
+==================
+Location
+==================
+*/
+void Cmd_location_f( const idCmdArgs &args) {
+	idPlayer* player = NULL;
+		player = gameLocal.GetLocalPlayer();
+		player = gameLocal.GetLocalPlayer();
+		if (!player) { //if there is no local player
+			return;
+		}
+		idVec3 origin = player->GetPhysics()->GetOrigin();
+		gameLocal.Printf("Location: [%f][%f][%f]\n", origin[0], origin[1], origin[2]);
+}
+/*
+==================
+Rounds
+==================
+*/
+void Cmd_round_f(const idCmdArgs& args) {
+	idPlayer* player = NULL;
+	player = gameLocal.GetLocalPlayer();
+	player = gameLocal.GetLocalPlayer();
+	if (!player) { //if there is no local player
+		return;
+	}
+	int arr[100];
+	for (int i = 0; i < 100; i++) {
+		arr[i] = i+1;
+
+	gameLocal.Printf("Round: %d\n", arr[i]);
+	}
+}
+/*
+==================
+Enemy wave 
+==================
+*/
+void Cmd_wave_f(const idCmdArgs& args) {
+	idPlayer* player = NULL;
+	idDict		dict;
+	int			e;
+	idEntity* check;
+	int			count;
+	size_t		size;
+	idStr		match;
+	count = 0;
+	size = 0;
+	player = gameLocal.GetLocalPlayer();
+	player = gameLocal.GetLocalPlayer();
+	if (!player) { //if there is no local player
+		return;
+	}
+	idVec3 origin = player->GetPhysics()->GetOrigin();
+	idEntity* newEnt = NULL;
+	gameLocal.SpawnEntityDef(dict, &newEnt);
+	for (e = 0; e < MAX_GENTITIES; e++) {
+		check = gameLocal.entities[e];
+
+		if (!check) {
+			continue;
+		}
+
+		if (!check->name.Filter(match)) {
+			continue;
+		}
+		count++;
+		size += check->spawnArgs.Allocated();
+	}
+
+	gameLocal.Printf("...%d entities\n...%d bytes of spawnargs\n", count, size);
+	int arr[10];
+	for (int i = 0; i < 10; i++) {
+		arr[i] = i + 1;
+		if (arr[i] % 5 == 0 ) {
+			gameLocal.Printf("spawn monster_gunner \n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+		}
+		else if (arr[i] % 4 == 0) {
+			gameLocal.Printf("spawn monster_teleport_Dropper\n");
+			gameLocal.Printf("spawn monster_teleport_Dropper\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+
+		}
+		else {
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+			gameLocal.Printf("spawn monster_slimy_transfer\n");
+		}
+		gameLocal.Printf("Wave: %d\n", arr[i]);
+	}
 }
 
 
@@ -3231,6 +3349,11 @@ void idGameLocal::InitConsoleCommands( void ) {
 // squirrel: Mode-agnostic buymenus
 	cmdSystem->AddCommand( "buyMenu",				Cmd_ToggleBuyMenu_f,		CMD_FL_GAME,				"Toggle buy menu (if in a buy zone and the game type supports it)" );
 	cmdSystem->AddCommand( "buy",					Cmd_BuyItem_f,				CMD_FL_GAME,				"Buy an item (if in a buy zone and the game type supports it)" );
+	cmdSystem->AddCommand("location",				Cmd_location_f,				CMD_FL_GAME,				"get player location)");
+	cmdSystem->AddCommand("round",					Cmd_round_f,				CMD_FL_GAME,				"get round number");
+	cmdSystem->AddCommand("wave",					Cmd_wave_f,					CMD_FL_GAME,				 "sends a wave of enemies");
+	cmdSystem->AddCommand("MonsterGunner",			Cmd_Spawn_f,				CMD_FL_GAME,				"spawns monster gunner");
+
 // RITUAL END
 
 }

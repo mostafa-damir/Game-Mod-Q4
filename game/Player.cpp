@@ -9159,6 +9159,7 @@ idPlayer::UpdateHud
 ==============
 */
 void idPlayer::UpdateHud( void ) {
+	hud-> SetStateInt("timer", gameLocal.time / 120);
 	if ( !hud ) {
 		return;
 	}
