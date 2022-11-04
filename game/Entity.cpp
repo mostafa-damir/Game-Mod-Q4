@@ -617,7 +617,7 @@ void idEntity::Spawn( void ) {
 	fl.neverDormant = spawnArgs.GetBool( "neverDormant", "0" );
 	fl.hidden = spawnArgs.GetBool( "hide", "0" );
 	if ( fl.hidden ) {
-		// make sure we're hidden, since a spawn function might not set it up right
+		// make sure we're hidden, since a 1function might not set it up right
 		PostEventMS( &EV_Hide, 0 );
 	}
 	cinematic = spawnArgs.GetBool( "cinematic", "0" );

@@ -23,11 +23,12 @@ public:
 
 protected:
 
+	rvAIAction			actionMeleeMoveAttack;
 	int					shots;
 	int					shotsFired;
-	idStr				nailgunPrefix;
-	int					nailgunMinShots;
-	int					nailgunMaxShots;
+	idStr				napalmgunPrefix;
+	int					napalmgunMinShots;
+	int					napalmgunMaxShots;
 	int					nextShootTime;
 	int					attackRate;
 	jointHandle_t		attackJoint;
@@ -44,7 +45,10 @@ private:
 
 	// Actions
 	rvAIAction			actionGrenadeAttack;
-	rvAIAction			actionNailgunAttack;
+	//rvAIAction			actionNailgunAttack;
+	rvAIAction			actionNapalmgunAttack;
+	rvAIAction			actionPopupAttack;
+
 
 	rvAIAction			actionSideStepLeft;
 	rvAIAction			actionSideStepRight;
@@ -53,9 +57,12 @@ private:
 	bool				CheckAction_SideStepLeft		( rvAIAction* action, int animNum );
 	bool				CheckAction_SideStepRight		( rvAIAction* action, int animNum );
 
+
 	// Torso States
-	stateResult_t		State_Torso_NailgunAttack		( const stateParms_t& parms );
+	//stateResult_t		State_Torso_NailgunAttack		( const stateParms_t& parms );
+	stateResult_t		State_Torso_NapalmgunAttack(const stateParms_t& parms);
 	stateResult_t		State_Torso_MovingRangedAttack	( const stateParms_t& parms );
+
 
 	CLASS_STATES_PROTOTYPE ( rvMonsterGunner );
 };
@@ -75,9 +82,11 @@ rvMonsterGunner::rvMonsterGunner ( ) {
 
 void rvMonsterGunner::InitSpawnArgsVariables( void )
 {
-	nailgunMinShots = spawnArgs.GetInt ( "action_nailgunAttack_minshots", "5" );
-	nailgunMaxShots = spawnArgs.GetInt ( "action_nailgunAttack_maxshots", "20" );
-	attackRate = SEC2MS( spawnArgs.GetFloat( "attackRate", "0.3" ) );
+	/*nailgunMinShots = spawnArgs.GetInt ( "action_nailgunAttack_minshots", "5" );*/
+	napalmgunMinShots = spawnArgs.GetInt("action_naplamgunAttack_minshots", "2");
+	napalmgunMaxShots = spawnArgs.GetInt("action_maplamgunAttack_maxshots", "5");
+	//nailgunMaxShots = spawnArgs.GetInt ( "action_nailgunAttack_maxshots", "20" );
+	attackRate = SEC2MS( spawnArgs.GetFloat( "attackRate", "0.5" ) );
 	attackJoint = animator.GetJointHandle( spawnArgs.GetString( "attackJoint", "muzzle" ) );
 }
 /*
@@ -86,8 +95,11 @@ rvMonsterGunner::Spawn
 ================
 */
 void rvMonsterGunner::Spawn ( void ) {
+	actionMeleeMoveAttack.Init(spawnArgs, "action_meleeMoveAttack", NULL, AIACTIONF_ATTACK);
 	actionGrenadeAttack.Init ( spawnArgs, "action_grenadeAttack", NULL, AIACTIONF_ATTACK );
-	actionNailgunAttack.Init ( spawnArgs, "action_nailgunAttack", "Torso_NailgunAttack", AIACTIONF_ATTACK );
+	//actionNailgunAttack.Init ( spawnArgs, "action_nailgunAttack", "Torso_NailgunAttack", AIACTIONF_ATTACK );
+	actionNapalmgunAttack.Init (spawnArgs, "action_naplamgunAttack", "Torso_NaplamgunAttack", AIACTIONF_ATTACK);
+	actionPopupAttack.Init(spawnArgs, "action_popupAttack", NULL, AIACTIONF_ATTACK);
 	actionSideStepLeft.Init ( spawnArgs, "action_sideStepLeft", NULL, 0 );
 	actionSideStepRight.Init ( spawnArgs, "action_sideStepRight", NULL, 0 );
 	actionTimerSideStep.Init ( spawnArgs, "actionTimer_sideStep" );
@@ -102,14 +114,18 @@ rvMonsterGunner::Save
 */
 void rvMonsterGunner::Save ( idSaveGame *savefile ) const {
 	actionGrenadeAttack.Save ( savefile );
-	actionNailgunAttack.Save ( savefile );
+	actionMeleeMoveAttack.Save(savefile);
+	//actionNailgunAttack.Save ( savefile );
+	actionPopupAttack.Save(savefile);
+	actionNapalmgunAttack, Save(savefile);
 	actionSideStepLeft.Save ( savefile );
 	actionSideStepRight.Save ( savefile );
 	actionTimerSideStep.Save ( savefile );
 	
 	savefile->WriteInt ( shots );
 	savefile->WriteInt ( shotsFired );
-	savefile->WriteString ( nailgunPrefix );
+	//savefile->WriteString ( nailgunPrefix );
+	savefile->WriteString( napalmgunPrefix );
 	savefile->WriteInt ( nextShootTime );
 }
 
@@ -120,14 +136,17 @@ rvMonsterGunner::Restore
 */
 void rvMonsterGunner::Restore ( idRestoreGame *savefile ) {
 	actionGrenadeAttack.Restore ( savefile );
-	actionNailgunAttack.Restore ( savefile );
+	//actionNailgunAttack.Restore ( savefile );
+	actionNapalmgunAttack.Restore(savefile);
+	actionPopupAttack.Restore(savefile);
 	actionSideStepLeft.Restore ( savefile );
 	actionSideStepRight.Restore ( savefile );
 	actionTimerSideStep.Restore ( savefile );
 	
 	savefile->ReadInt ( shots );
 	savefile->ReadInt ( shotsFired );
-	savefile->ReadString ( nailgunPrefix );
+	//savefile->ReadString ( nailgunPrefix );
+	savefile->ReadString(napalmgunPrefix);
 	savefile->ReadInt ( nextShootTime );
 
 	InitSpawnArgsVariables();
@@ -150,13 +169,13 @@ void rvMonsterGunner::OnStopMoving ( aiMoveCommand_t oldMoveCommand ) {
 		{//in melee state or in melee range
 			actionMeleeAttack.timer.Clear( actionTime );
 		}
-		else if ( (!actionNailgunAttack.timer.IsDone(actionTime) || !actionTimerRangedAttack.IsDone(actionTime))
+		else if ( (!actionNapalmgunAttack.timer.IsDone(actionTime) || !actionTimerRangedAttack.IsDone(actionTime))
 			&& (!actionGrenadeAttack.timer.IsDone(actionTime) || !actionTimerSpecialAttack.IsDone(actionTime)) )
 		{//no attack is ready
 			//Ready at least one of them
 			if ( gameLocal.random.RandomInt(3) )
 			{
-				actionNailgunAttack.timer.Clear( actionTime );
+				actionNapalmgunAttack.timer.Clear(actionTime);
 				actionTimerRangedAttack.Clear( actionTime );
 			}
 			else
@@ -187,7 +206,7 @@ rvMonsterGunner::FilterTactical
 int rvMonsterGunner::FilterTactical ( int availableTactical ) {
 	if ( !move.fl.moving && enemy.range > combat.meleeRange )
 	{//keep moving!
-		if ( (!actionNailgunAttack.timer.IsDone(actionTime+500) || !actionTimerRangedAttack.IsDone(actionTime+500))
+		if ( (!actionNapalmgunAttack.timer.IsDone(actionTime+500) || !actionTimerRangedAttack.IsDone(actionTime+500))
 			&& (!actionGrenadeAttack.timer.IsDone(actionTime+500) || !actionTimerSpecialAttack.IsDone(actionTime+500)) )
 		{//won't be attacking in the next 1 second
 			combat.tacticalUpdateTime = 0;
@@ -231,9 +250,9 @@ bool rvMonsterGunner::CheckAction_SideStepLeft ( rvAIAction* action, int animNum
 	TestAnimMove( animNum, NULL, &moveVec );
 	//NOTE: should we care if we can't walk all the way to the left?
 	int attAnimNum = -1;
-	if ( actionNailgunAttack.anims.Num ( ) ) {
+	if ( actionNapalmgunAttack.anims.Num ( ) ) {
 		// Pick a random animation from the list
-		attAnimNum = GetAnim ( ANIMCHANNEL_TORSO, actionNailgunAttack.anims[gameLocal.random.RandomInt(actionNailgunAttack.anims.Num())] );
+		attAnimNum = GetAnim ( ANIMCHANNEL_TORSO, actionNapalmgunAttack.anims[gameLocal.random.RandomInt(actionNapalmgunAttack.anims.Num())] );
 	}
 	if ( attAnimNum != -1 && !CanHitEnemyFromAnim( attAnimNum, moveVec ) ) {
 		return false;
@@ -254,9 +273,9 @@ bool rvMonsterGunner::CheckAction_SideStepRight ( rvAIAction* action, int animNu
 	TestAnimMove ( animNum, NULL, &moveVec );
 	//NOTE: should we care if we can't walk all the way to the right?
 	int attAnimNum = -1;
-	if ( actionNailgunAttack.anims.Num ( ) ) {
+	if ( actionNapalmgunAttack.anims.Num ( ) ) {
 		// Pick a random animation from the list
-		attAnimNum = GetAnim ( ANIMCHANNEL_TORSO, actionNailgunAttack.anims[gameLocal.random.RandomInt(actionNailgunAttack.anims.Num())] );
+		attAnimNum = GetAnim ( ANIMCHANNEL_TORSO, actionNapalmgunAttack.anims[gameLocal.random.RandomInt(actionNapalmgunAttack.anims.Num())] );
 	}
 	if ( attAnimNum != -1 && !CanHitEnemyFromAnim( attAnimNum, moveVec ) ) {
 		return false;
@@ -272,10 +291,13 @@ rvMonsterGunner::CheckActions
 bool rvMonsterGunner::CheckActions ( void ) {
 	// Fire a grenade?
 	if ( PerformAction ( &actionGrenadeAttack, (checkAction_t)&idAI::CheckAction_RangedAttack, &actionTimerSpecialAttack ) ||
-		 PerformAction ( &actionNailgunAttack, (checkAction_t)&idAI::CheckAction_RangedAttack, &actionTimerRangedAttack )     )  {
+		 PerformAction ( &actionNapalmgunAttack, (checkAction_t)&idAI::CheckAction_RangedAttack, &actionTimerRangedAttack )     )  {
 		return true;
 	}
-
+	// Moving melee attack?
+	if (PerformAction(&actionMeleeMoveAttack, (checkAction_t)&idAI::CheckAction_MeleeAttack, NULL)) {
+		return true;
+	}
 	bool action = idAI::CheckActions( );
 	if ( !action ) {
 		//try a strafe
@@ -283,6 +305,7 @@ bool rvMonsterGunner::CheckActions ( void ) {
 			//we can see our enemy but haven't been able to shoot him in a while...
 			if ( PerformAction ( &actionSideStepLeft, (checkAction_t)&rvMonsterGunner::CheckAction_SideStepLeft, &actionTimerSideStep )
 				|| PerformAction ( &actionSideStepRight, (checkAction_t)&rvMonsterGunner::CheckAction_SideStepRight, &actionTimerSideStep ) ) {
+
 				return true;
 			}
 		}
@@ -300,14 +323,15 @@ void rvMonsterGunner::GetDebugInfo ( debugInfoProc_t proc, void* userData ) {
 	idAI::GetDebugInfo ( proc, userData );
 	
 	proc ( "idAI", "action_grenadeAttack",		aiActionStatusString[actionGrenadeAttack.status], userData );
-	proc ( "idAI", "action_nailgunAttack",		aiActionStatusString[actionNailgunAttack.status], userData );
+	proc("idAI", "action_popupAttack", aiActionStatusString[actionPopupAttack.status], userData);
+	proc("idAI", "action_napalmgunAttack",		aiActionStatusString[actionNapalmgunAttack.status], userData);
 	proc ( "idAI", "actionSideStepLeft",		aiActionStatusString[actionSideStepLeft.status], userData );
 	proc ( "idAI", "actionSideStepRight",		aiActionStatusString[actionSideStepRight.status], userData );
 }
 
 bool rvMonsterGunner::Pain( idEntity *inflictor, idEntity *attacker, int damage, const idVec3 &dir, int location ) {
 	actionTimerRangedAttack.Clear( actionTime );
-	actionNailgunAttack.timer.Clear( actionTime );
+	actionNapalmgunAttack.timer.Clear( actionTime );
 	return (idAI::Pain( inflictor, attacker, damage, dir, location ));
 }
 /*
@@ -319,7 +343,7 @@ bool rvMonsterGunner::Pain( idEntity *inflictor, idEntity *attacker, int damage,
 */
 
 CLASS_STATES_DECLARATION ( rvMonsterGunner )
-	STATE ( "Torso_NailgunAttack",		rvMonsterGunner::State_Torso_NailgunAttack )
+	STATE ( "Torso_NapalmgunAttack",		rvMonsterGunner::State_Torso_NapalmgunAttack )
 	STATE ( "Torso_MovingRangedAttack",	rvMonsterGunner::State_Torso_MovingRangedAttack )
 END_CLASS_STATES
 
@@ -336,7 +360,8 @@ stateResult_t rvMonsterGunner::State_Torso_MovingRangedAttack ( const stateParms
 	};
 	switch ( parms.stage ) {
 		case STAGE_INIT:
-			shots = (gameLocal.random.RandomInt ( nailgunMaxShots - nailgunMinShots ) + nailgunMinShots) * combat.aggressiveScale;
+			//shots = (gameLocal.random.RandomInt ( nailgunMaxShots - nailgunMinShots ) + nailgunMinShots) * combat.aggressiveScale;
+			shots = (gameLocal.random.RandomInt(napalmgunMaxShots - napalmgunMinShots) + napalmgunMinShots) * combat.aggressiveScale;
 			shotsFired = 0;
 			return SRESULT_STAGE ( STAGE_SHOOT );
 			
@@ -345,10 +370,10 @@ stateResult_t rvMonsterGunner::State_Torso_MovingRangedAttack ( const stateParms
 			shotsFired++;
 			nextShootTime = gameLocal.GetTime() + attackRate;
 			if ( attackJoint != INVALID_JOINT ) {
-				Attack( "nail", attackJoint, GetEnemy() );
-				PlayEffect( "fx_nail_flash", attackJoint );
+				Attack( "napalm", attackJoint, GetEnemy() );
+				PlayEffect( "fx_napalm_flash", attackJoint );
 			}
-			StartSound( "snd_nailgun_fire", SND_CHANNEL_WEAPON, 0, false, 0 );
+			StartSound( "snd_napalmgun_fire", SND_CHANNEL_WEAPON, 0, false, 0 );
 			/*
 			switch ( move.currentDirection )
 			{
@@ -372,7 +397,7 @@ stateResult_t rvMonsterGunner::State_Torso_MovingRangedAttack ( const stateParms
 			// When the shoot animation is done either play another shot animation
 			// or finish up with post_shooting
 			if ( gameLocal.GetTime() >= nextShootTime ) {
-				if ( shots <= 0 || (!enemy.fl.inFov && shotsFired >= nailgunMinShots) || !move.fl.moving ) {
+				if ( shots <= 0 || (!enemy.fl.inFov && shotsFired >= napalmgunMinShots) || !move.fl.moving ) {
 					return SRESULT_DONE;
 				}
 				return SRESULT_STAGE ( STAGE_SHOOT);
@@ -388,8 +413,8 @@ stateResult_t rvMonsterGunner::State_Torso_MovingRangedAttack ( const stateParms
 rvMonsterGunner::State_Torso_NailgunAttack
 ================
 */
-stateResult_t rvMonsterGunner::State_Torso_NailgunAttack ( const stateParms_t& parms ) {
-	static const char* nailgunAnims [ ] = { "nailgun_short", "nailgun_long" };
+stateResult_t rvMonsterGunner::State_Torso_NapalmgunAttack ( const stateParms_t& parms ) {
+	static const char* napalmgunAnims [ ] = { "napalmgun_short", "napalmgun_long" };
 	enum { 
 		STAGE_INIT,
 		STAGE_WAITSTART,
@@ -400,21 +425,21 @@ stateResult_t rvMonsterGunner::State_Torso_NailgunAttack ( const stateParms_t& p
 	switch ( parms.stage ) {
 		case STAGE_INIT:
 			// If moving switch to the moving ranged attack (torso only)
-			if ( move.fl.moving && !actionNailgunAttack.fl.overrideLegs && FacingIdeal() && !gameLocal.random.RandomInt(1) ) {
+			if ( move.fl.moving && !actionNapalmgunAttack.fl.overrideLegs && FacingIdeal() && !gameLocal.random.RandomInt(1) ) {
 				PostAnimState ( ANIMCHANNEL_TORSO, "Torso_MovingRangedAttack", parms.blendFrames );
 				return SRESULT_DONE;
 			}
 
-			shots = (gameLocal.random.RandomInt ( nailgunMaxShots - nailgunMinShots ) + nailgunMinShots) * combat.aggressiveScale;
+			shots = (gameLocal.random.RandomInt ( napalmgunMaxShots - napalmgunMinShots ) + napalmgunMinShots) * combat.aggressiveScale;
 			DisableAnimState ( ANIMCHANNEL_LEGS );
 			shotsFired = 0;
-			nailgunPrefix = nailgunAnims[shots%2];
-			if ( !CanHitEnemyFromAnim( GetAnim( ANIMCHANNEL_TORSO, va("%s_loop", nailgunPrefix.c_str() ) ) ) )
+			napalmgunPrefix = napalmgunAnims[shots%2];
+			if ( !CanHitEnemyFromAnim( GetAnim( ANIMCHANNEL_TORSO, va("%s_loop", napalmgunPrefix.c_str() ) ) ) )
 			{//this is hacky, but we really need to test the attack anim first since they're so different
 				//can't hit with this one, just use the other one...
-				nailgunPrefix = nailgunAnims[(shots+1)%2];
+				napalmgunPrefix = napalmgunAnims[(shots+1)%2];
 			}
-			PlayAnim ( ANIMCHANNEL_TORSO, va("%s_start", nailgunPrefix.c_str() ), parms.blendFrames );
+			PlayAnim ( ANIMCHANNEL_TORSO, va("%s_start", napalmgunPrefix.c_str() ), parms.blendFrames );
 			return SRESULT_STAGE ( STAGE_WAITSTART );
 			
 		case STAGE_WAITSTART:
@@ -424,14 +449,14 @@ stateResult_t rvMonsterGunner::State_Torso_NailgunAttack ( const stateParms_t& p
 			return SRESULT_WAIT;
 		
 		case STAGE_LOOP:
-			PlayAnim ( ANIMCHANNEL_TORSO, va("%s_loop", nailgunPrefix.c_str() ), 0 );
+			PlayAnim ( ANIMCHANNEL_TORSO, va("%s_loop", napalmgunPrefix.c_str() ), 0 );
 			shotsFired++;
 			return SRESULT_STAGE ( STAGE_WAITLOOP );
 		
 		case STAGE_WAITLOOP:
 			if ( AnimDone ( ANIMCHANNEL_TORSO, 0 ) ) {
-				if ( --shots <= 0 || (shotsFired >= nailgunMinShots && !enemy.fl.inFov) || aifl.damage ) {
-					PlayAnim ( ANIMCHANNEL_TORSO, va("%s_end", nailgunPrefix.c_str() ), 0 );
+				if ( --shots <= 0 || (shotsFired >= napalmgunMinShots && !enemy.fl.inFov) || aifl.damage ) {
+					PlayAnim ( ANIMCHANNEL_TORSO, va("%s_end", napalmgunPrefix.c_str() ), 0 );
 					return SRESULT_STAGE ( STAGE_WAITEND );
 				}
 				return SRESULT_STAGE ( STAGE_LOOP );
